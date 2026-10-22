@@ -1,7 +1,7 @@
 using System.Text.Json;
-using LudoGameBackend.Helper;
-using LudoGameBackend.Hubs;
-using LudoGameBackend.Rooms;
+using MenchGameBackend.Helper;
+using MenchGameBackend.Hubs;
+using MenchGameBackend.Rooms;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,9 +17,9 @@ builder.Services.AddCors(options =>
     options.AddDefaultPolicy(policy =>
     {
         policy.SetIsOriginAllowed(origin => CorsHelper.IsAllowedOrigin(origin, extraOrigins))
-            .AllowAnyHeader()
             .AllowAnyMethod()
-            .AllowCredentials();
+            .AllowCredentials()
+            .AllowAnyHeader();
     });
 });
 

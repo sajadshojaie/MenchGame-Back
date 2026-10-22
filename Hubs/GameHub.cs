@@ -1,8 +1,9 @@
 using System.Text.Json;
-using LudoGameBackend.Rooms;
+using MenchGameBackend.Models;
+using MenchGameBackend.Rooms;
 using Microsoft.AspNetCore.SignalR;
 
-namespace LudoGameBackend.Hubs;
+namespace MenchGameBackend.Hubs;
 
 public sealed class GameHub(RoomStore rooms) : Hub
 {
