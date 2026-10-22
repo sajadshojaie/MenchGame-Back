@@ -1,2 +1,4 @@
-# MenchGame-Back
-MenchGame-Back
+# LudoGameBackend
+
+- Hub: `/hubs/game`
+

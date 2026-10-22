@@ -1,0 +1,17 @@
+
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MenchGameBackend", "MenchGameBackend.csproj", "{A1C8B3E0-4F2D-4B91-9C1A-7E2F0D8A5B11}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A1C8B3E0-4F2D-4B91-9C1A-7E2F0D8A5B11}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1C8B3E0-4F2D-4B91-9C1A-7E2F0D8A5B11}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1C8B3E0-4F2D-4B91-9C1A-7E2F0D8A5B11}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1C8B3E0-4F2D-4B91-9C1A-7E2F0D8A5B11}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
