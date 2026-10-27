@@ -9,7 +9,7 @@ public sealed class GameHub(RoomStore rooms) : Hub
 {
     public async Task<string[]> Join(string roomId, string selfId, string role)
     {
-        if (string.IsNullOrWhiteSpace(roomId) || string.IsNullOrWhiteSpace(selfId))
+        if (string.IsNullOrWhiteSpace(roomId) || string.IsNullOrWhiteSpace(selfId) || string.IsNullOrWhiteSpace(role))
             throw new HubException("INVALID");
 
         if (rooms.TryGetMembership(Context.ConnectionId, out var previous)
@@ -33,6 +33,9 @@ public sealed class GameHub(RoomStore rooms) : Hub
 
         await Groups.AddToGroupAsync(Context.ConnectionId, result.RoomId);
         await Clients.OthersInGroup(result.RoomId).SendAsync("PeerJoined", selfId);
+        var snapshot = rooms.GetLatestState(result.RoomId);
+        if (snapshot is not null)
+            await Clients.Caller.SendAsync("Receive", snapshot.Message, snapshot.SenderId);
         return result.Others;
     }
 
@@ -41,6 +44,9 @@ public sealed class GameHub(RoomStore rooms) : Hub
     public async Task Send(JsonElement message, string? targetSelfId)
     {
         if (!rooms.TryGetMembership(Context.ConnectionId, out var membership)) return;
+
+        if (IsStateMessage(message))
+            rooms.SaveState(membership.RoomId, message, membership.SelfId);
 
         if (!string.IsNullOrWhiteSpace(targetSelfId))
         {
@@ -52,6 +58,12 @@ public sealed class GameHub(RoomStore rooms) : Hub
 
         await Clients.OthersInGroup(membership.RoomId).SendAsync("Receive", message, membership.SelfId);
     }
+
+    private static bool IsStateMessage(JsonElement message) =>
+        message.ValueKind == JsonValueKind.Object
+        && message.TryGetProperty("kind", out var kind)
+        && kind.ValueKind == JsonValueKind.String
+        && string.Equals(kind.GetString(), "state", StringComparison.Ordinal);
 
     public override async Task OnDisconnectedAsync(Exception? exception)
     {

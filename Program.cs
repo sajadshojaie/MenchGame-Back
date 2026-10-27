@@ -23,8 +23,14 @@ builder.Services.AddCors(options =>
     });
 });
 
+// builder.Services.AddCors(option => option.AddPolicy("CorsPolicy",
+//     x => x.WithOrigins("https://mench.dev-future.ir", "http://localhost:3000")
+//         .AllowAnyMethod().AllowCredentials().AllowAnyHeader()
+//     ));
+
 var app = builder.Build();
 app.UseCors();
+// app.UseCors("CorsPolicy");
 app.MapHub<GameHub>("/hubs/game");
 app.Run();
 

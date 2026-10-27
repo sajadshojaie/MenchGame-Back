@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Text.Json;
 using MenchGameBackend.Models;
 
 namespace MenchGameBackend.Rooms;
@@ -8,13 +9,34 @@ public sealed class RoomStore
     private readonly ConcurrentDictionary<string, Room> _rooms = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, Membership> _byConnection = new(StringComparer.Ordinal);
 
-    public static string Normalize(string roomId) => roomId.Trim().ToUpperInvariant();
-
-    public bool TryGetMembership(string connectionId, out Membership membership) =>
-        _byConnection.TryGetValue(connectionId, out membership!);
-
-    public JoinResult Join(string connectionId, string roomId, string selfId, string role)
+    public static string Normalize(string? roomId)
     {
+        if (string.IsNullOrWhiteSpace(roomId)) return string.Empty;
+        return roomId.Trim().ToUpperInvariant();
+    }
+
+    public bool TryGetMembership(string? connectionId, out Membership membership)
+    {
+        if (string.IsNullOrWhiteSpace(connectionId))
+        {
+            membership = default!;
+            return false;
+        }
+
+        return _byConnection.TryGetValue(connectionId, out membership!);
+    }
+
+    public JoinResult Join(string? connectionId, string? roomId, string? selfId, string? role)
+    {
+        if (string.IsNullOrWhiteSpace(connectionId))
+            throw new ArgumentException("Connection id is required.", nameof(connectionId));
+
+        if (string.IsNullOrWhiteSpace(roomId))
+            throw new ArgumentException("Room id is required.", nameof(roomId));
+
+        if (string.IsNullOrWhiteSpace(selfId))
+            throw new ArgumentException("Self id is required.", nameof(selfId));
+
         roomId = Normalize(roomId);
         selfId = selfId.Trim();
         var isHost = string.Equals(role, "host", StringComparison.OrdinalIgnoreCase);
@@ -63,8 +85,9 @@ public sealed class RoomStore
         }
     }
 
-    public Membership? Disconnect(string connectionId, bool dropSeat)
+    public Membership? Disconnect(string? connectionId, bool dropSeat)
     {
+        if (string.IsNullOrWhiteSpace(connectionId)) return null;
         if (!_byConnection.TryRemove(connectionId, out var membership)) return null;
         if (!_rooms.TryGetValue(membership.RoomId, out var room)) return membership;
 
@@ -90,12 +113,39 @@ public sealed class RoomStore
         return membership;
     }
 
-    public string? ConnectionOf(string roomId, string selfId)
+    public string? ConnectionOf(string? roomId, string? selfId)
     {
+        if (string.IsNullOrWhiteSpace(roomId) || string.IsNullOrWhiteSpace(selfId)) return null;
+
         if (!_rooms.TryGetValue(Normalize(roomId), out var room)) return null;
         lock (room.Gate)
         {
-            return room.Players.TryGetValue(selfId, out var player) ? player.ConnectionId : null;
+            return room.Players.TryGetValue(selfId.Trim(), out var player) ? player.ConnectionId : null;
+        }
+    }
+
+    public void SaveState(string? roomId, JsonElement message, string senderId)
+    {
+        if (string.IsNullOrWhiteSpace(roomId) || string.IsNullOrWhiteSpace(senderId)) return;
+        if (!_rooms.TryGetValue(Normalize(roomId), out var room)) return;
+
+        lock (room.Gate)
+        {
+            room.LastStateMessage = message.Clone();
+            room.StateSenderId = senderId;
+        }
+    }
+
+    public RoomStateSnapshot? GetLatestState(string? roomId)
+    {
+        if (string.IsNullOrWhiteSpace(roomId)) return null;
+        if (!_rooms.TryGetValue(Normalize(roomId), out var room)) return null;
+
+        lock (room.Gate)
+        {
+            if (room.LastStateMessage is not { } message || string.IsNullOrWhiteSpace(room.StateSenderId))
+                return null;
+            return new RoomStateSnapshot(message.Clone(), room.StateSenderId);
         }
     }
 }
