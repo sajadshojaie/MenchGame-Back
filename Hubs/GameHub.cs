@@ -45,7 +45,7 @@ public sealed class GameHub(RoomStore rooms) : Hub
     {
         if (!rooms.TryGetMembership(Context.ConnectionId, out var membership)) return;
 
-        if (IsStateMessage(message))
+        if (IsStateMessage(message) && rooms.IsHost(membership.RoomId, membership.SelfId))
             rooms.SaveState(membership.RoomId, message, membership.SelfId);
 
         if (!string.IsNullOrWhiteSpace(targetSelfId))
@@ -57,6 +57,18 @@ public sealed class GameHub(RoomStore rooms) : Hub
         }
 
         await Clients.OthersInGroup(membership.RoomId).SendAsync("Receive", message, membership.SelfId);
+    }
+
+    public async Task PublishLobbySettings(JsonElement message)
+    {
+        if (!rooms.TryGetMembership(Context.ConnectionId, out var membership)
+            || !rooms.TryPublishLobbySettings(membership.RoomId, membership.SelfId, message))
+        {
+            throw new HubException("LOBBY_SETTINGS_REJECTED");
+        }
+
+        await Clients.OthersInGroup(membership.RoomId)
+            .SendAsync("LobbySettingsChanged", message, membership.SelfId);
     }
 
     private static bool IsStateMessage(JsonElement message) =>

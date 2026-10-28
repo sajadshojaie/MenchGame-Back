@@ -124,6 +124,17 @@ public sealed class RoomStore
         }
     }
 
+    public bool IsHost(string? roomId, string? selfId)
+    {
+        if (string.IsNullOrWhiteSpace(roomId) || string.IsNullOrWhiteSpace(selfId)) return false;
+        if (!_rooms.TryGetValue(Normalize(roomId), out var room)) return false;
+
+        lock (room.Gate)
+        {
+            return string.Equals(room.HostSelfId, selfId.Trim(), StringComparison.Ordinal);
+        }
+    }
+
     public void SaveState(string? roomId, JsonElement message, string senderId)
     {
         if (string.IsNullOrWhiteSpace(roomId) || string.IsNullOrWhiteSpace(senderId)) return;
@@ -131,8 +142,24 @@ public sealed class RoomStore
 
         lock (room.Gate)
         {
+            if (!string.Equals(room.HostSelfId, senderId, StringComparison.Ordinal)) return;
             room.LastStateMessage = message.Clone();
             room.StateSenderId = senderId;
+        }
+    }
+
+    public bool TryPublishLobbySettings(string? roomId, string senderId, JsonElement message)
+    {
+        if (string.IsNullOrWhiteSpace(roomId) || string.IsNullOrWhiteSpace(senderId)) return false;
+        if (!IsValidLobbySettingsState(message)) return false;
+        if (!_rooms.TryGetValue(Normalize(roomId), out var room)) return false;
+
+        lock (room.Gate)
+        {
+            if (!string.Equals(room.HostSelfId, senderId, StringComparison.Ordinal)) return false;
+            room.LastStateMessage = message.Clone();
+            room.StateSenderId = senderId;
+            return true;
         }
     }
 
@@ -147,5 +174,33 @@ public sealed class RoomStore
                 return null;
             return new RoomStateSnapshot(message.Clone(), room.StateSenderId);
         }
+    }
+
+    private static bool IsValidLobbySettingsState(JsonElement message)
+    {
+        if (message.ValueKind != JsonValueKind.Object
+            || !message.TryGetProperty("kind", out var kind)
+            || kind.ValueKind != JsonValueKind.String
+            || kind.GetString() != "state"
+            || !message.TryGetProperty("state", out var state)
+            || state.ValueKind != JsonValueKind.Object
+            || !state.TryGetProperty("status", out var status)
+            || status.ValueKind != JsonValueKind.String
+            || status.GetString() != "lobby"
+            || !state.TryGetProperty("rollTimerEnabled", out var timer)
+            || timer.ValueKind is not (JsonValueKind.True or JsonValueKind.False)
+            || !state.TryGetProperty("players", out var players)
+            || players.ValueKind != JsonValueKind.Array)
+        {
+            return false;
+        }
+
+        return players.EnumerateArray().All(player =>
+            player.ValueKind == JsonValueKind.Object
+            && player.TryGetProperty("id", out var id)
+            && id.ValueKind == JsonValueKind.String
+            && player.TryGetProperty("seat", out var seat)
+            && seat.ValueKind == JsonValueKind.Number
+            && seat.TryGetInt32(out _));
     }
 }
